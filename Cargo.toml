@@ -2,6 +2,13 @@
 name = "bevy_sim_world"
 version = "0.1.0"
 edition = "2021"
+authors = ["Noah Shomette <noahshomette@gmail.com>"]
+description = "A library providing a separated simulation world for the Bevy Game Engine"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/NoahShomette/bevy_sim_world"
+exclude = ["assets/*", "design/*", "tools/*"]
+resolver = "2"
 
 [badges]
 maintenance = { status = "actively-developed" }
