@@ -36,9 +36,14 @@ impl SimChanged {
         return if self.players_seen.contains(&id) {
             true
         } else {
-            self.players_seen.push(id);
+            self.register_seen(id);
             false
         };
+    }
+
+    /// Registers the given id.
+    pub fn register_seen(&mut self, id: usize) {
+        self.players_seen.push(id);
     }
 
     /// Checks if the given player id has been registered and returns the results

@@ -227,10 +227,10 @@ pub trait SaveId {
     where
         Self: Sized;
 
-    /// Serializes the state of the object at the given tick into binary. Only saves the keyframe and not the curve itself
+    /// Serializes the object into binary
     fn to_binary(&self) -> Option<Vec<u8>>;
 
-    /// Saves self according to the implementation given in to_binary. For curves it saves the keyframe and not the entire component
+    /// Saves self according to the implementation given in to_binary
     fn save(&self) -> Option<(SimComponentId, Vec<u8>)> {
         let Some(data) = self.to_binary() else {
             return None;

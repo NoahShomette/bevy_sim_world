@@ -18,12 +18,12 @@ pub mod requests;
 pub mod runner;
 pub mod saving;
 
-/// Holds all the actual game information
-#[derive(Resource)]
+/// A separate world used to separate simulations
+#[derive(Resource, Component)]
 pub struct SimWorld {
-    /// A world that should hold all sim state
+    /// A bevy world
     pub world: World,
-    /// Holds component and resource registrations that will be diffed and updated
+    /// Holds component and resource registrations
     pub registry: GameSerDeRegistry,
     /// List of all players in the sim. Used with state and changed
     pub player_list: PlayerList,

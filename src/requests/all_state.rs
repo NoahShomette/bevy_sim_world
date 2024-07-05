@@ -1,7 +1,7 @@
 use bevy::prelude::{Entity, Mut, Without};
 
 use crate::{
-    change_detection::{DespawnTracked, TrackedDespawns},
+    change_detection::{DespawnTracked, ResourceChangeTracking, TrackedDespawns},
     player::Player,
     saving::{ComponentBinaryState, SaveId},
 };
@@ -67,6 +67,16 @@ impl SimRequest for AllState {
                     state.despawned_objects.push(*id);
                 }
             });
+        sim_world.world.resource_scope(
+            |world, mut resource_change_tracking: Mut<ResourceChangeTracking>| {
+                for (id, _) in resource_change_tracking.resources.iter_mut() {
+                    if let Some(resource_state) = sim_world.registry.serialize_resource(id, &world)
+                    {
+                        state.resources.push(resource_state);
+                    }
+                }
+            },
+        );
 
         state
     }
