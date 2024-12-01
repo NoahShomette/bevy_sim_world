@@ -5,23 +5,22 @@ use bevy::{
         world::World,
     },
     prelude::EntityWorldMut,
+    reflect::TypePath,
     utils::HashMap,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::requests::ResourceState;
 
-pub mod implements;
-
 /// An id hand assigned to components using the [`SaveId`] trait that identifies each component
 ///
 /// Is simply a u16 under the type
-pub type SimComponentId = u16;
+pub type SimComponentId = &'static str;
 
 /// An id hand assigned to resources using the [`SaveId`] trait that identifies each component
 ///
 /// Is simply a u16 under the type
-pub type SimResourceId = u16;
+pub type SimResourceId = &'static str;
 
 #[derive(Debug)]
 pub struct ComponentBinaryState {
@@ -31,19 +30,19 @@ pub struct ComponentBinaryState {
 
 /// A registry that contains deserialization functions for game components
 #[derive(Resource, Clone, Default)]
-pub struct GameSerDeRegistry {
+pub struct SimSerDeRegistry {
     pub component_de_map: HashMap<SimComponentId, ComponentDeserializeFn>,
     pub resource_de_map: HashMap<SimResourceId, ResourceDeserializeFn>,
     pub resource_se_map: HashMap<SimResourceId, ResourceSerializeFn>,
     pub resource_id_map: ResourceSaveComponentIdMap,
 }
 
-impl GameSerDeRegistry {
-    pub fn new() -> GameSerDeRegistry {
-        GameSerDeRegistry::default()
+impl SimSerDeRegistry {
+    pub fn new() -> SimSerDeRegistry {
+        SimSerDeRegistry::default()
     }
 
-    /// Registers a component into the [`GameSerDeRegistry`] for automatic serialization and deserialization
+    /// Registers a component into the [`SimSerDeRegistry`] for automatic serialization and deserialization
     pub fn register_component<C>(&mut self)
     where
         C: Component + Serialize + DeserializeOwned + SaveId,
@@ -58,7 +57,7 @@ impl GameSerDeRegistry {
             .insert(C::save_id_const(), component_deserialize_onto::<C>);
     }
 
-    /// Registers a component into the [`GameSerDeRegistry`] for automatic serialization and deserialization
+    /// Registers a component into the [`SimSerDeRegistry`] for automatic serialization and deserialization
     pub fn register_resource<R>(&mut self)
     where
         R: Resource + Serialize + DeserializeOwned + SaveId,
@@ -106,9 +105,9 @@ impl GameSerDeRegistry {
         }
     }
 
-    /// Adds the default registry which has all the basic Bevy_GGF components and resources
-    pub fn default_registry() -> GameSerDeRegistry {
-        let game_registry = GameSerDeRegistry::new();
+    /// Adds the default registry
+    pub fn default_registry() -> SimSerDeRegistry {
+        let game_registry = SimSerDeRegistry::new();
         game_registry
     }
 }
@@ -192,6 +191,9 @@ impl ResourceSaveComponentIdMap {
     }
 }
 
+/// Marks this component as being part of the sim world.
+pub trait SimComponent {}
+
 /// Must be implemented on any components for objects that are expected to be saved
 ///
 /// You must ensure that both this traits [save_id] function and [save_id_const] functions match
@@ -222,8 +224,8 @@ impl ResourceSaveComponentIdMap {
 /// ```
 #[bevy_trait_query::queryable]
 pub trait SaveId {
-    fn save_id(&self) -> SimComponentId;
-    fn save_id_const() -> SimComponentId
+    fn save_id(&self) -> &'static str;
+    fn save_id_const() -> &'static str
     where
         Self: Sized;
 
@@ -231,10 +233,31 @@ pub trait SaveId {
     fn to_binary(&self) -> Option<Vec<u8>>;
 
     /// Saves self according to the implementation given in to_binary
-    fn save(&self) -> Option<(SimComponentId, Vec<u8>)> {
+    fn save(&self) -> Option<(&'static str, Vec<u8>)> {
         let Some(data) = self.to_binary() else {
             return None;
         };
         Some((self.save_id(), data))
+    }
+}
+
+impl<T> SaveId for T
+where
+    T: TypePath + Serialize,
+{
+    fn save_id(&self) -> &'static str {
+        T::type_path()
+    }
+
+    fn save_id_const() -> &'static str
+    where
+        Self: Sized,
+    {
+        T::type_path()
+    }
+
+    #[doc = " Serializes the object into binary"]
+    fn to_binary(&self) -> Option<Vec<u8>> {
+        bincode::serialize(self).ok()
     }
 }

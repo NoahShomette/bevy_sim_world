@@ -8,7 +8,7 @@ use change_detection::{ResourceChangeTracking, TrackedDespawns};
 use requests::SimRequest;
 use saving::SimResourceId;
 
-use self::saving::GameSerDeRegistry;
+use self::saving::SimSerDeRegistry;
 
 pub mod change_detection;
 pub mod command;
@@ -24,7 +24,7 @@ pub struct SimWorld {
     /// A bevy world
     pub world: World,
     /// Holds component and resource registrations
-    pub registry: GameSerDeRegistry,
+    pub registry: SimSerDeRegistry,
     /// List of all players in the sim. Used with state and changed
     pub player_list: PlayerList,
 }

@@ -1,8 +1,8 @@
 use crate::change_detection::{despawn_objects, track_component_changes, track_resource_changes};
 use crate::change_detection::{ResourceChangeTracking, TrackedDespawns};
-use crate::command::{GameCommand, GameCommandMeta, GameCommandQueue, GameCommands};
+use crate::command::{GameCommand, SimCommandMeta, SimCommandQueue, SimCommands};
 use crate::player::{Player, PlayerList, PlayerMarker};
-use crate::runner::{GameRunner, GameRuntime, PostBaseSets, PreBaseSets};
+use crate::runner::{SimRuntime, PostBaseSets, PreBaseSets, SimRunner};
 use crate::SimWorld;
 use bevy::prelude::*;
 use bevy_trait_query::RegisterExt;
@@ -11,45 +11,45 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::default::Default;
 
-use crate::saving::{GameSerDeRegistry, SaveId};
+use crate::saving::{SimSerDeRegistry, SaveId};
 
 /// GameBuilder that creates a new game and sets it up correctly
 #[derive(Resource)]
-pub struct GameBuilder<GR>
+pub struct SimBuilder<SR>
 where
-    GR: GameRunner + 'static,
+    SR: SimRunner + 'static,
 {
-    pub game_runner: GR,
-    /// A schedule that is run before the GameRunner::simulate_game function
-    pub game_pre_schedule: Schedule,
-    /// A schedule that is run after the GameRunner::simulate_game function
-    pub game_post_schedule: Schedule,
-    pub game_world: World,
-    /// A schedule that is run as the last item before inserting the Game Resource during setup. Use
-    /// this for systems that must be run once when the game is setup and only then
+    pub sim_runner: SR,
+    /// A schedule that is run before the SimRunner::simulate function
+    pub sim_pre_schedule: Schedule,
+    /// A schedule that is run after the SimRunner::simulate function
+    pub sim_post_schedule: Schedule,
+    pub sim_world: World,
+    /// A schedule that is run as the last item before inserting the Sim Resource during setup. Use
+    /// this for systems that must be run once when the sim is setup and only then
     pub setup_schedule: Schedule,
-    pub game_serde_registry: GameSerDeRegistry,
-    pub commands: Option<GameCommands>,
+    pub sim_serde_registry: SimSerDeRegistry,
+    pub commands: Option<SimCommands>,
     pub next_player_id: usize,
     pub player_list: PlayerList,
 }
 
-impl<GR> GameBuilder<GR>
+impl<SR> SimBuilder<SR>
 where
-    GR: GameRunner,
+    SR: SimRunner,
 {
-    pub fn new_game(game_runner: GR) -> GameBuilder<GR> {
-        let mut game_world = World::new();
+    pub fn new_sim(sim_runner: SR) -> SimBuilder<SR> {
+        let mut sim_world = World::new();
 
-        game_world.insert_resource(GameCommands::default());
+        sim_world.insert_resource(SimCommands::default());
 
-        GameBuilder {
-            game_runner,
-            game_pre_schedule: GameBuilder::<GR>::default_game_pre_schedule(),
-            game_post_schedule: GameBuilder::<GR>::default_game_post_schedule(),
-            game_world,
-            setup_schedule: GameBuilder::<GR>::default_setup_schedule(),
-            game_serde_registry: GameSerDeRegistry::default_registry(),
+        SimBuilder {
+            sim_runner,
+            sim_pre_schedule: SimBuilder::<SR>::default_sim_pre_schedule(),
+            sim_post_schedule: SimBuilder::<SR>::default_sim_post_schedule(),
+            sim_world,
+            setup_schedule: SimBuilder::<SR>::default_setup_schedule(),
+            sim_serde_registry: SimSerDeRegistry::default_registry(),
             commands: Default::default(),
             next_player_id: 0,
             player_list: PlayerList { players: vec![] },
@@ -57,30 +57,30 @@ where
     }
     pub fn new_game_with_commands(
         commands: Vec<Box<dyn GameCommand>>,
-        game_runner: GR,
-    ) -> GameBuilder<GR> {
-        let mut game_command_queue: Vec<GameCommandMeta> = vec![];
+        sim_runner: SR,
+    ) -> SimBuilder<SR> {
+        let mut sim_command_queue: Vec<SimCommandMeta> = vec![];
 
         for command in commands.into_iter() {
             let utc: DateTime<Utc> = Utc::now();
-            game_command_queue.push(GameCommandMeta {
+            sim_command_queue.push(SimCommandMeta {
                 command,
                 command_time: utc,
             })
         }
 
-        let game_world = World::new();
+        let sim_world = World::new();
 
-        GameBuilder {
-            game_runner,
-            game_pre_schedule: GameBuilder::<GR>::default_game_pre_schedule(),
-            game_post_schedule: GameBuilder::<GR>::default_game_post_schedule(),
-            game_world,
-            setup_schedule: GameBuilder::<GR>::default_setup_schedule(),
-            game_serde_registry: GameSerDeRegistry::default_registry(),
-            commands: Some(GameCommands {
-                queue: GameCommandQueue {
-                    queue: game_command_queue,
+        SimBuilder {
+            sim_runner,
+            sim_pre_schedule: SimBuilder::<SR>::default_sim_pre_schedule(),
+            sim_post_schedule: SimBuilder::<SR>::default_sim_post_schedule(),
+            sim_world,
+            setup_schedule: SimBuilder::<SR>::default_setup_schedule(),
+            sim_serde_registry: SimSerDeRegistry::default_registry(),
+            commands: Some(SimCommands {
+                queue: SimCommandQueue {
+                    queue: sim_command_queue,
                 },
                 history: Default::default(),
             }),
@@ -89,20 +89,20 @@ where
         }
     }
 
-    /// Removes the [`GameCommands`] from the game world and returns them. Make sure to reinsert the commands
+    /// Removes the [`SimCommands`] from the sim world and returns them. Make sure to reinsert the commands
     /// after using them
-    pub fn remove_commands(&mut self) -> Option<GameCommands> {
+    pub fn remove_commands(&mut self) -> Option<SimCommands> {
         self.commands.take()
     }
 
-    /// Inserts the given commands into the game world
-    pub fn insert_commands(&mut self, game_commands: GameCommands) {
+    /// Inserts the given commands into the sim world
+    pub fn insert_commands(&mut self, game_commands: SimCommands) {
         self.commands = Some(game_commands);
     }
 
     /// Adds the default registry which has all the basic Bevy_GGF components and resources
     pub fn add_default_registrations(&mut self) {
-        self.game_world
+        self.sim_world
             .register_component_as::<dyn SaveId, PlayerMarker>();
     }
 
@@ -112,13 +112,13 @@ where
         self.register_component_track_changes::<PlayerMarker>();
     }
 
-    /// Inserts a system into GameRunner::game_post_schedule that will track the specified Component
+    /// Inserts a system into SimRunner::simpost_schedule that will track the specified Component
     /// and insert a Changed::default() component when it detects a change
     pub fn register_component_track_changes<C>(&mut self)
     where
         C: Component,
     {
-        self.game_post_schedule
+        self.sim_post_schedule
             .add_systems(track_component_changes::<C>.in_set(PostBaseSets::Main));
     }
 
@@ -127,7 +127,7 @@ where
     where
         R: Resource + SaveId,
     {
-        self.game_post_schedule
+        self.sim_post_schedule
             .add_systems(track_resource_changes::<R>.in_set(PostBaseSets::Main));
     }
 
@@ -137,8 +137,8 @@ where
     where
         Type: Component + SaveId + Serialize + DeserializeOwned,
     {
-        self.game_serde_registry.register_component::<Type>();
-        self.game_world.register_component_as::<dyn SaveId, Type>();
+        self.sim_serde_registry.register_component::<Type>();
+        self.sim_world.register_component_as::<dyn SaveId, Type>();
         self.register_component_track_changes::<Type>();
     }
 
@@ -148,7 +148,7 @@ where
     where
         Type: Resource + SaveId + Serialize + DeserializeOwned,
     {
-        self.game_serde_registry.register_resource::<Type>();
+        self.sim_serde_registry.register_resource::<Type>();
         self.register_resource_track_changes::<Type>();
     }
 
@@ -157,7 +157,7 @@ where
 
         schedule
     }
-    pub fn default_game_pre_schedule() -> Schedule {
+    pub fn default_sim_pre_schedule() -> Schedule {
         let mut schedule = Schedule::default();
         schedule
             .configure_sets(
@@ -178,7 +178,7 @@ where
         schedule
     }
 
-    pub fn default_game_post_schedule() -> Schedule {
+    pub fn default_sim_post_schedule() -> Schedule {
         let mut schedule = Schedule::default();
         schedule
             .configure_sets(
@@ -204,7 +204,7 @@ where
         let new_player_id = self.next_player_id;
         self.next_player_id += 1;
         let player_entity = self
-            .game_world
+            .sim_world
             .spawn(Player::new(new_player_id, needs_state));
         self.player_list
             .players
@@ -213,35 +213,35 @@ where
     }
 
     pub fn build(mut self, main_world: &mut World) {
-        self.setup_schedule.run(&mut self.game_world);
-        main_world.insert_resource::<GameRuntime<GR>>(GameRuntime {
-            game_runner: self.game_runner,
-            game_pre_schedule: self.game_pre_schedule,
-            game_post_schedule: self.game_post_schedule,
+        self.setup_schedule.run(&mut self.sim_world);
+        main_world.insert_resource::<SimRuntime<SR>>(SimRuntime {
+            sim_runner: self.sim_runner,
+            sim_pre_schedule: self.sim_pre_schedule,
+            sim_post_schedule: self.sim_post_schedule,
         });
-        self.game_world
-            .insert_resource(self.game_serde_registry.clone());
-        self.game_world.insert_resource(TrackedDespawns {
+        self.sim_world
+            .insert_resource(self.sim_serde_registry.clone());
+        self.sim_world.insert_resource(TrackedDespawns {
             despawned_objects: Default::default(),
         });
-        self.game_world.insert_resource(ResourceChangeTracking {
+        self.sim_world.insert_resource(ResourceChangeTracking {
             resources: Default::default(),
         });
-        self.game_world.insert_resource(self.player_list.clone());
+        self.sim_world.insert_resource(self.player_list.clone());
 
         if let Some(commands) = self.commands.as_mut() {
-            commands.execute_buffer(&mut self.game_world);
+            commands.execute_buffer(&mut self.sim_world);
         } else {
-            self.commands = Some(GameCommands::default());
+            self.commands = Some(SimCommands::default());
         }
 
         main_world.insert_resource(self.commands.unwrap());
 
-        self.setup_schedule.run(&mut self.game_world);
+        self.setup_schedule.run(&mut self.sim_world);
 
         main_world.insert_resource::<SimWorld>(SimWorld {
-            world: self.game_world,
-            registry: self.game_serde_registry,
+            world: self.sim_world,
+            registry: self.sim_serde_registry,
             player_list: self.player_list,
         });
     }

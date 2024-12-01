@@ -63,7 +63,7 @@ use chrono::{DateTime, Utc};
 
 /// Executes all stored game commands by calling the command queue execute buffer function
 pub fn execute_game_commands_buffer(world: &mut World) {
-    world.resource_scope(|world, mut game_commands: Mut<GameCommands>| {
+    world.resource_scope(|world, mut game_commands: Mut<SimCommands>| {
         world.resource_scope(|_world, mut game: Mut<SimWorld>| {
             game_commands.execute_buffer(&mut game.world);
         });
@@ -72,7 +72,7 @@ pub fn execute_game_commands_buffer(world: &mut World) {
 
 /// Executes all rollbacks requested - panics if a rollback fails
 pub fn execute_game_rollbacks_buffer(world: &mut World) {
-    world.resource_scope(|world, mut game: Mut<GameCommands>| {
+    world.resource_scope(|world, mut game: Mut<SimCommands>| {
         while game.history.rollbacks != 0 {
             if let Some(mut command) = game.history.pop() {
                 command.command.rollback(world).expect("Rollback failed");
@@ -86,7 +86,7 @@ pub fn execute_game_rollbacks_buffer(world: &mut World) {
 
 /// Executes all rollforwards requested - panics if an execute fails
 pub fn execute_game_rollforward_buffer(world: &mut World) {
-    world.resource_scope(|world, mut game: Mut<GameCommands>| {
+    world.resource_scope(|world, mut game: Mut<SimCommands>| {
         while game.history.rollforwards != 0 {
             if let Some(mut command) = game.history.rolledback_history.pop() {
                 if let Ok(_) = command.command.execute(world) {
@@ -106,7 +106,7 @@ pub enum CommandType {
 }
 
 #[derive(Clone)]
-pub struct GameCommandMeta {
+pub struct SimCommandMeta {
     pub command: Box<dyn GameCommand>,
     pub command_time: DateTime<Utc>,
     //command_type: CommandType,
@@ -187,18 +187,18 @@ where
 
 /// The queue of pending [`GameCommand`]s. Doesn't do anything until executed
 #[derive(Default)]
-pub struct GameCommandQueue {
-    pub queue: Vec<GameCommandMeta>,
+pub struct SimCommandQueue {
+    pub queue: Vec<SimCommandMeta>,
 }
 
-impl GameCommandQueue {
+impl SimCommandQueue {
     /// Push a new command to the end of the queue
     pub fn push<C>(&mut self, command: C)
     where
         C: GameCommand,
     {
         let utc: DateTime<Utc> = Utc::now();
-        let command_meta = GameCommandMeta {
+        let command_meta = SimCommandMeta {
             command: Box::from(command),
             command_time: utc,
         };
@@ -206,7 +206,7 @@ impl GameCommandQueue {
     }
 
     /// Take the last command in the queue. Returns None if queue is empty
-    pub fn pop(&mut self) -> Option<GameCommandMeta> {
+    pub fn pop(&mut self) -> Option<SimCommandMeta> {
         self.queue.pop()
     }
 }
@@ -216,30 +216,30 @@ impl GameCommandQueue {
 /// that led to this instance of the game
 #[derive(Default)]
 pub struct GameCommandsHistory {
-    pub history: Vec<GameCommandMeta>,
-    pub rolledback_history: Vec<GameCommandMeta>,
+    pub history: Vec<SimCommandMeta>,
+    pub rolledback_history: Vec<SimCommandMeta>,
     rollbacks: u32,
     rollforwards: u32,
 }
 
 impl GameCommandsHistory {
     /// Push a command to the end of the history vec
-    pub fn push(&mut self, command: GameCommandMeta) {
+    pub fn push(&mut self, command: SimCommandMeta) {
         self.history.push(command);
     }
 
     /// Take the last command in the queue. Returns None if queue is empty
-    pub fn pop(&mut self) -> Option<GameCommandMeta> {
+    pub fn pop(&mut self) -> Option<SimCommandMeta> {
         self.history.pop()
     }
 
     /// Push a command to the end of the history vec
-    pub fn push_rollback_history(&mut self, command: GameCommandMeta) {
+    pub fn push_rollback_history(&mut self, command: SimCommandMeta) {
         self.rolledback_history.push(command);
     }
 
     /// Take the last command in the queue. Returns None if queue is empty
-    pub fn pop_rollback_history(&mut self) -> Option<GameCommandMeta> {
+    pub fn pop_rollback_history(&mut self) -> Option<SimCommandMeta> {
         self.rolledback_history.pop()
     }
 
@@ -251,14 +251,14 @@ impl GameCommandsHistory {
 /// A struct to hold, execute, and rollback [`GameCommand`]s. Use associated actions to access and
 /// modify the game
 #[derive(Default, Resource)]
-pub struct GameCommands {
-    pub queue: GameCommandQueue,
+pub struct SimCommands {
+    pub queue: SimCommandQueue,
     pub history: GameCommandsHistory,
 }
 
-impl GameCommands {
+impl SimCommands {
     pub fn new() -> Self {
-        GameCommands {
+        SimCommands {
             queue: Default::default(),
             history: Default::default(),
         }

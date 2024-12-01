@@ -1,7 +1,7 @@
 use bevy::prelude::{Component, Reflect, Resource};
 use serde::{Deserialize, Serialize};
 
-/// A list of all players in the game. This is copied into the game world to allow accessing it
+/// A list of all players in the game. This is copied into the sim world to allow accessing it
 #[derive(
     Clone, Eq, Hash, Debug, PartialEq, Resource, Component, Reflect, Serialize, Deserialize,
 )]
@@ -9,7 +9,7 @@ pub struct PlayerList {
     pub players: Vec<Player>,
 }
 
-/// A unique player with unique information used to drive game systems
+/// A unique player with unique information used to drive sim systems
 #[derive(
     Default, Clone, Copy, Eq, Hash, Debug, PartialEq, Component, Reflect, Serialize, Deserialize,
 )]

@@ -127,39 +127,20 @@ pub mod test {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        game_builder::GameBuilder,
+        game_builder::SimBuilder,
         requests::state_dif::StateDif,
-        runner::{GameRuntime, TurnBasedGameRunner},
-        saving::{SaveId, SimComponentId},
+        runner::{SimRuntime, TurnBasedGameRunner},
         SimWorld,
     };
 
     #[derive(Default, Component, Serialize, Deserialize, Reflect)]
     struct TestComponent(u32);
 
-    impl SaveId for TestComponent {
-        fn save_id(&self) -> SimComponentId {
-            25
-        }
-
-        fn save_id_const() -> SimComponentId
-        where
-            Self: Sized,
-        {
-            25
-        }
-
-        #[doc = r" Serializes the state of the object at the given tick into binary. Only saves the keyframe and not the curve itself"]
-        fn to_binary(&self) -> Option<Vec<u8>> {
-            bincode::serialize(self).ok()
-        }
-    }
-
     // TODO: write tests for this
     #[test]
     fn test_component_change_tracking() {
         let mut world = World::new();
-        let mut game = GameBuilder::<TurnBasedGameRunner>::new_game(TurnBasedGameRunner {
+        let mut game = SimBuilder::<TurnBasedGameRunner>::new_sim(TurnBasedGameRunner {
             turn_schedule: Default::default(),
         });
         game.register_component::<TestComponent>();
@@ -167,7 +148,7 @@ pub mod test {
 
         let mut game = world.remove_resource::<SimWorld>().unwrap();
         let mut game_runtime = world
-            .remove_resource::<GameRuntime<TurnBasedGameRunner>>()
+            .remove_resource::<SimRuntime<TurnBasedGameRunner>>()
             .unwrap();
 
         let entity = game.world.spawn_empty().insert(TestComponent(0)).id();
@@ -225,28 +206,10 @@ pub mod test {
     #[derive(Default, Resource, Reflect, Serialize, Deserialize)]
     struct TestResource(u32);
 
-    impl SaveId for TestResource {
-        fn save_id(&self) -> SimComponentId {
-            25
-        }
-
-        fn save_id_const() -> SimComponentId
-        where
-            Self: Sized,
-        {
-            25
-        }
-
-        #[doc = r" Serializes the state of the object at the given tick into binary. Only saves the keyframe and not the curve itself"]
-        fn to_binary(&self) -> Option<Vec<u8>> {
-            bincode::serialize(self).ok()
-        }
-    }
-
     #[test]
     fn test_resource_change_tracking() {
         let mut world = World::new();
-        let mut game = GameBuilder::<TurnBasedGameRunner>::new_game(TurnBasedGameRunner {
+        let mut game = SimBuilder::<TurnBasedGameRunner>::new_sim(TurnBasedGameRunner {
             turn_schedule: Default::default(),
         });
         game.register_resource::<TestResource>();
@@ -254,7 +217,7 @@ pub mod test {
 
         let mut game = world.remove_resource::<SimWorld>().unwrap();
         let mut game_runtime = world
-            .remove_resource::<GameRuntime<TurnBasedGameRunner>>()
+            .remove_resource::<SimRuntime<TurnBasedGameRunner>>()
             .unwrap();
 
         game.world.insert_resource(TestResource(0));

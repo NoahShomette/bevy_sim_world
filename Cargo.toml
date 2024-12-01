@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sim_world"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Noah Shomette <noahshomette@gmail.com>"]
 description = "A library providing a separated simulation world for the Bevy Game Engine"
@@ -22,7 +22,7 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.13.2", features = [
+bevy = { version = "0.15.0", features = [
     "bevy_scene",
     "bevy_gilrs",
     "bevy_winit",
@@ -30,7 +30,7 @@ bevy = { version = "0.13.2", features = [
     "wayland",
     "x11",
 ], default-features = false }
-serde = { version = "1.0.125", features = ["derive"] }
-bevy-trait-query = { version = "0.5.1" }
+serde = { version = "1.0.215", features = ["derive"] }
+bevy-trait-query = { git = "https://github.com/RobWalt/bevy-trait-query.git", branch = "bevy-0.15-rc" }
 bincode = { version = "1.3.3" }
 chrono = { version = "0.4.23", features = ["std", "serde"] }

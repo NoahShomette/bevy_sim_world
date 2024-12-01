@@ -7,3 +7,10 @@ A library providing a separated simulation world for the Bevy Game Engine.
 - Separated simulation world
 - Request interface to access state inside the sim world and copy out
 - Deferred command pattern stream supporting undo/redo to affect changes to the sim world in a controlled fashion when needed
+
+## Bevy Version
+
+| BSW Version | Bevy Version |
+| :---------: | :----------: |
+|     0.2     |     0.15     |
+|     0.1     |     0.14     |
