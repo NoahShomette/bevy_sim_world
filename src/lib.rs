@@ -11,11 +11,9 @@ use saving::SimResourceId;
 use self::saving::SimSerDeRegistry;
 
 pub mod change_detection;
-pub mod command;
 pub mod game_builder;
 pub mod player;
 pub mod requests;
-pub mod runner;
 pub mod saving;
 
 /// A separate world used to separate simulations
@@ -27,6 +25,8 @@ pub struct SimWorld {
     pub registry: SimSerDeRegistry,
     /// List of all players in the sim. Used with state and changed
     pub player_list: PlayerList,
+    /// Schedule containing systems to track component and resource state
+    pub tracking_schedule: Schedule,
 }
 
 impl SimWorld {
@@ -76,6 +76,4 @@ impl SimWorld {
 
         system_state.apply(&mut self.world);
     }
-
-    pub fn execute_game_commands(&mut self) {}
 }

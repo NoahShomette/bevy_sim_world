@@ -1,7 +1,7 @@
 use bevy::{
     prelude::{
         Commands, Component, DespawnRecursiveExt, DetectChanges, Entity, Mut, Query,
-        RemovedComponents, ResMut, Resource, With, World,
+        RemovedComponents, ResMut, Resource, SystemSet, With, World,
     },
     reflect::Reflect,
     utils::HashMap,
@@ -12,6 +12,12 @@ use crate::{
     player::Player,
     saving::{SaveId, SimResourceId},
 };
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum TrackingSet {
+    Component,
+    Resource,
+}
 
 #[derive(Default, Clone, Eq, Debug, PartialEq, Component, Reflect, Serialize, Deserialize)]
 pub struct SimChanged {
@@ -126,12 +132,7 @@ pub mod test {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::{
-        game_builder::SimBuilder,
-        requests::state_dif::StateDif,
-        runner::{SimRuntime, TurnBasedGameRunner},
-        SimWorld,
-    };
+    use crate::{game_builder::SimBuilder, requests::state_dif::StateDif, SimWorld};
 
     #[derive(Default, Component, Serialize, Deserialize, Reflect)]
     struct TestComponent(u32);
@@ -140,20 +141,15 @@ pub mod test {
     #[test]
     fn test_component_change_tracking() {
         let mut world = World::new();
-        let mut game = SimBuilder::<TurnBasedGameRunner>::new_sim(TurnBasedGameRunner {
-            turn_schedule: Default::default(),
-        });
+        let mut game = SimBuilder::new_sim();
         game.register_component::<TestComponent>();
         game.build(&mut world);
 
         let mut game = world.remove_resource::<SimWorld>().unwrap();
-        let mut game_runtime = world
-            .remove_resource::<SimRuntime<TurnBasedGameRunner>>()
-            .unwrap();
 
         let entity = game.world.spawn_empty().insert(TestComponent(0)).id();
 
-        game_runtime.simulate(&mut game.world);
+        game.tracking_schedule.run(&mut game.world);
 
         let mut first_state = game.request(StateDif { for_player: 0 });
 
@@ -161,7 +157,7 @@ pub mod test {
         let mut component = entity_mut.get_mut::<TestComponent>().unwrap();
         component.0 += 1;
 
-        game_runtime.simulate(&mut game.world);
+        game.tracking_schedule.run(&mut game.world);
 
         let mut second_state = game.request(StateDif { for_player: 0 });
 
@@ -209,20 +205,15 @@ pub mod test {
     #[test]
     fn test_resource_change_tracking() {
         let mut world = World::new();
-        let mut game = SimBuilder::<TurnBasedGameRunner>::new_sim(TurnBasedGameRunner {
-            turn_schedule: Default::default(),
-        });
+        let mut game = SimBuilder::new_sim();
         game.register_resource::<TestResource>();
         game.build(&mut world);
 
         let mut game = world.remove_resource::<SimWorld>().unwrap();
-        let mut game_runtime = world
-            .remove_resource::<SimRuntime<TurnBasedGameRunner>>()
-            .unwrap();
 
         game.world.insert_resource(TestResource(0));
 
-        game_runtime.simulate(&mut game.world);
+        game.tracking_schedule.run(&mut game.world);
 
         let mut first_state = game.request(StateDif { for_player: 0 });
 
@@ -231,7 +222,7 @@ pub mod test {
                 resource.0 += 1;
             });
 
-        game_runtime.simulate(&mut game.world);
+        game.tracking_schedule.run(&mut game.world);
 
         let mut second_state = game.request(StateDif { for_player: 0 });
 
