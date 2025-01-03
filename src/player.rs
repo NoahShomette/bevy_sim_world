@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct PlayerList {
     pub players: Vec<Player>,
+    /// The next id that is up and hasn't been used before
+    pub next_player_id: usize,
 }
 
 /// A unique player with unique information used to drive sim systems

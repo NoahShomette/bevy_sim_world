@@ -132,7 +132,7 @@ pub mod test {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::{game_builder::SimBuilder, requests::state_dif::StateDif, SimWorld};
+    use crate::{requests::state_dif::StateDif, SimWorld};
 
     #[derive(Default, Component, Serialize, Deserialize, Reflect)]
     struct TestComponent(u32);
@@ -141,11 +141,8 @@ pub mod test {
     #[test]
     fn test_component_change_tracking() {
         let mut world = World::new();
-        let mut game = SimBuilder::new_sim();
+        let mut game = SimWorld::new();
         game.register_component::<TestComponent>();
-        game.build(&mut world);
-
-        let mut game = world.remove_resource::<SimWorld>().unwrap();
 
         let entity = game.world.spawn_empty().insert(TestComponent(0)).id();
 
@@ -205,11 +202,8 @@ pub mod test {
     #[test]
     fn test_resource_change_tracking() {
         let mut world = World::new();
-        let mut game = SimBuilder::new_sim();
+        let mut game = SimWorld::new();
         game.register_resource::<TestResource>();
-        game.build(&mut world);
-
-        let mut game = world.remove_resource::<SimWorld>().unwrap();
 
         game.world.insert_resource(TestResource(0));
 
