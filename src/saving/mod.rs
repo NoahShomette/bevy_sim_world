@@ -8,21 +8,17 @@ use bevy::{
     reflect::TypePath,
     utils::HashMap,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::requests::ResourceState;
 
 /// An id hand assigned to components using the [`SaveId`] trait that identifies each component
-///
-/// Is simply a u16 under the type
-pub type SimComponentId = &'static str;
+pub type SimComponentId = String;
 
 /// An id hand assigned to resources using the [`SaveId`] trait that identifies each component
-///
-/// Is simply a u16 under the type
-pub type SimResourceId = &'static str;
+pub type SimResourceId = String;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ComponentBinaryState {
     pub id: SimComponentId,
     pub component: Vec<u8>,
@@ -185,7 +181,7 @@ impl ResourceSaveComponentIdMap {
         sim_resource_id: SimResourceId,
     ) {
         self.id_to_component
-            .insert(sim_resource_id, resource_component_id);
+            .insert(sim_resource_id.clone(), resource_component_id);
         self.component_to_id
             .insert(resource_component_id, sim_resource_id);
     }
@@ -224,8 +220,8 @@ pub trait SimComponent {}
 /// ```
 #[bevy_trait_query::queryable]
 pub trait SaveId {
-    fn save_id(&self) -> &'static str;
-    fn save_id_const() -> &'static str
+    fn save_id(&self) -> String;
+    fn save_id_const() -> String
     where
         Self: Sized;
 
@@ -233,7 +229,7 @@ pub trait SaveId {
     fn to_binary(&self) -> Option<Vec<u8>>;
 
     /// Saves self according to the implementation given in to_binary
-    fn save(&self) -> Option<(&'static str, Vec<u8>)> {
+    fn save(&self) -> Option<(String, Vec<u8>)> {
         let Some(data) = self.to_binary() else {
             return None;
         };
@@ -245,15 +241,15 @@ impl<T> SaveId for T
 where
     T: TypePath + Serialize,
 {
-    fn save_id(&self) -> &'static str {
-        T::type_path()
+    fn save_id(&self) -> String {
+        T::type_path().to_owned()
     }
 
-    fn save_id_const() -> &'static str
+    fn save_id_const() -> String
     where
         Self: Sized,
     {
-        T::type_path()
+        T::type_path().to_owned()
     }
 
     #[doc = " Serializes the object into binary"]

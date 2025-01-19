@@ -94,7 +94,7 @@ impl SimWorld {
                 let mut index_to_remove: Vec<SimResourceId> = vec![];
                 for (id, changed) in resource_change_tracking.resources.iter_mut() {
                     if changed.all_seen(&player_list.players) {
-                        index_to_remove.push(*id);
+                        index_to_remove.push(id.clone());
                     }
                 }
                 for id in index_to_remove {
